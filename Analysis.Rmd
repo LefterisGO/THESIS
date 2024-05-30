@@ -1,0 +1,209 @@
+---
+title: "Untitled"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-04-19"
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+#start of thesis:
+
+```{r, echo=FALSE, message=FALSE}
+#install.packages("nortest")
+#install.packages("estimatr")
+library(readr)
+library(broom)
+library(data.table)
+library(car)
+library(MASS)
+library(olsrr)
+library(lmtest)
+library(nortest)
+library(sandwich)
+library(estimatr)
+```
+
+```{r, echo=FALSE, message=FALSE}
+UR <- read_csv("unique reviews.csv")
+setDT(UR)
+```
+Creating the variables Age and Helpfulness_percentage_positive. Also use scaling in order to standardize our metric independent variables
+
+```{r}
+
+# Standardize the independent variables
+UR$Age <- as.numeric(max(UR$Date_of_Review) - UR$Date_of_Review)# subtraction by min to numeric
+UR$Verification <- scale(UR$Verification)
+UR$Amount_of_positive_attributes <- scale(UR$Amount_of_positive_attributes)
+UR$Amount_of_negative_attributes <- scale(UR$Amount_of_negative_attributes)
+UR$Amount_of_neutral_attributes <- scale(UR$Amount_of_neutral_attributes)
+UR$Rating_Extremeness <- scale(UR$Rating_Extremeness)
+UR$Age <- scale(UR$Age)
+UR$Helpfulness_percentage_positive <- UR$Helpfulness_Positive / (UR$Helpfulness_Positive+UR$Helpfulness_Negative)
+
+UR$Helpfulness_percentage_positive[is.na(UR$Helpfulness_percentage_positive)] <- 0
+
+
+```
+
+
+```{r}
+View(UR)
+summary(UR)
+```
+
+
+```{r}
+UR_lm1 <- lm(Helpfulness ~ Verification +Amount_of_positive_attributes +Amount_of_negative_attributes+Amount_of_neutral_attributes +Rating_Extremeness +Verification*Age, UR);
+
+UR_lm2 <- lm(Helpfulness_percentage_positive ~ Verification +Amount_of_positive_attributes +Amount_of_negative_attributes+Amount_of_neutral_attributes +Rating_Extremeness +Verification*Age, UR);
+
+summary(UR_lm1)
+summary(UR_lm2)
+
+```
+
+
+
+```{r}
+UR_lm1_robust <- lm_robust(Helpfulness ~ Verification +Amount_of_positive_attributes +Amount_of_negative_attributes+Amount_of_neutral_attributes +Rating_Extremeness +Verification*Age, UR);
+
+UR_lm2_robust <-lm_robust(Helpfulness_percentage_positive ~ Verification +Amount_of_positive_attributes+Amount_of_negative_attributes+Amount_of_neutral_attributes +Rating_Extremeness +Verification*Age, UR)
+
+summary(UR_lm1_robust)
+summary(UR_lm2_robust)
+
+```
+
+
+
+Assumptions
+
+# Homoscedasticity
+
+model 1
+```{r}
+
+bptest(UR_lm1)
+# Plot residuals vs. fitted values also linearity check
+plot(UR_lm1$fitted.values, UR_lm1$residuals,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values",
+     pch = 16,      # Set point character to solid circle
+     col = "blue",  # Set point color to blue
+     cex = 0.8)     # Set point size
+```
+
+model 2
+```{r}
+
+bptest(UR_lm2)
+# Plot residuals vs. fitted values also linearity check
+plot(UR_lm2$fitted.values, UR_lm2$residuals,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values",
+     pch = 16,      # Set point character to solid circle
+     col = "blue",  # Set point color to blue
+     cex = 0.8)     # Set point size
+```
+
+model 1 robust
+```{r}
+
+bptest(UR_lm1_robust)
+# Plot residuals vs. fitted values also linearity check
+plot(UR_lm1_robust$fitted.values, UR_lm1_robust$residuals,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values",
+     pch = 16,      # Set point character to solid circle
+     col = "blue",  # Set point color to blue
+     cex = 0.8)     # Set point size
+```
+
+model 2 robust
+```{r}
+
+bptest(UR_lm2_robust)
+# Plot residuals vs. fitted values also linearity check
+plot(UR_lm2_robust$fitted.values, UR_lm2_robust$residuals,
+     xlab = "Fitted Values",
+     ylab = "Residuals",
+     main = "Residuals vs. Fitted Values",
+     pch = 16,      # Set point character to solid circle
+     col = "blue",  # Set point color to blue
+     cex = 0.8)     # Set point size
+```
+
+
+# Multicollinearity: if vif is below 10 for interaction or even 5 then we are good.
+
+model 1
+```{r}
+vif(UR_lm1)
+```
+
+model 2
+```{r}
+vif(UR_lm2)
+```
+
+
+
+checking normality
+
+model 1
+```{r}
+residuals<- residuals(UR_lm1)
+ks.test(residuals, "pnorm")
+ad.test(residuals(UR_lm1))
+```
+
+```{r}
+hist(residuals(UR_lm1),main = "Histogram of Residuals", breaks=30)
+```
+
+```{r}
+qqnorm(residuals(UR_lm1))#distribution of my model residuals
+qqline(residuals(UR_lm1))#theoretic normal distr
+```
+
+model 2
+```{r}
+residuals<- residuals(UR_lm2)
+ks.test(residuals, "pnorm")
+ad.test(residuals(UR_lm2))
+```
+
+```{r}
+hist(residuals(UR_lm2),main = "Histogram of Residuals", breaks=30)
+```
+
+```{r}
+qqnorm(residuals(UR_lm2))#distribution of my model residuals
+qqline(residuals(UR_lm2))#theoretic normal distr
+```
+
+
+
+
+
+Total Graphs used for interpretation
+
+```{r}
+ols_plot_diagnostics(UR_lm1)
+
+```
+
+```{r}
+ols_plot_diagnostics(UR_lm2)
+
+```
+
